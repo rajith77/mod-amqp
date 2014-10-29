@@ -26,16 +26,8 @@ import org.apache.qpid.proton.amqp.transport.SenderSettleMode;
 import org.apache.qpid.proton.engine.Delivery;
 import org.apache.qpid.proton.engine.Link;
 import org.apache.qpid.proton.engine.Sender;
-import org.splash.messaging.Action;
-import org.splash.messaging.Message;
-import org.splash.messaging.MessageFormatException;
-import org.splash.messaging.MessagingException;
-import org.splash.messaging.NetworkException;
-import org.splash.messaging.OutboundLink;
-import org.splash.messaging.ReasonCode;
-import org.splash.messaging.Tracker;
 
-class OutboundLink extends BaseLink implements Action, OutboundLink
+class OutboundLink extends BaseLink
 {
 
     OutboundLink(Session ssn, String address, Link link)
@@ -43,32 +35,28 @@ class OutboundLink extends BaseLink implements Action, OutboundLink
         super(ssn, address, link);
     }
 
-    @Override
-    public void offerCredits(int credits) throws MessagingException, NetworkException
+    public void offerCredits(int credits) throws MessagingException
     {
         ((Sender) _link).offer(credits);
         _ssn.getConnection().write();
     }
 
-    @Override
-    void init() throws NetworkException
+    void init()
     {
         _link.open();
         _ssn.getConnection().write();
     }
 
-    @Override
     public int getUnsettled() throws MessagingException
     {
         checkClosed();
         return _link.getUnsettled();
     }
 
-    @Override
-    public Tracker send(Message msg) throws MessageFormatException, MessagingException, NetworkException
+    public Tracker send(AmqpMessage msg) throws MessageFormatException, MessagingException
     {
         checkClosed();
-        if (msg instanceof Message)
+        if (msg instanceof AmqpMessage)
         {
             Sender sender = (Sender) _link;
             byte[] tag = longToBytes(_ssn.getNextDeliveryTag());
@@ -81,7 +69,7 @@ class OutboundLink extends BaseLink implements Action, OutboundLink
                 tracker.markSettled();
             }
 
-            org.apache.qpid.proton.message.Message m = ((Message) msg).getProtocolMessage();
+            org.apache.qpid.proton.message.Message m = ((AmqpMessage) msg).getProtocolMessage();
             if (m.getAddress() == null)
             {
                 m.setAddress(_address);
@@ -97,18 +85,6 @@ class OutboundLink extends BaseLink implements Action, OutboundLink
         {
             throw new MessageFormatException("Unsupported message implementation");
         }
-    }
-
-    @Override
-    public void accept() throws NetworkException
-    {
-        init();
-    }
-
-    @Override
-    public void reject(ReasonCode code, String desc, String alternateAddress) throws NetworkException
-    {
-        // TODO Auto-generated method stub
     }
 
     private static byte[] longToBytes(final long value)

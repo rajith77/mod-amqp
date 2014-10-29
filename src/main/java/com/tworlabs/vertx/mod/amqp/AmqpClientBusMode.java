@@ -23,8 +23,6 @@ import org.vertx.java.core.json.JsonElement;
 
 public class AmqpClientBusMode extends BusModBase
 {
-    private JsonArray defaultAddressArray = new JsonArray("vertx.mod-amqp");
-
     private AmqpClient client;
 
     @Override
@@ -35,7 +33,6 @@ public class AmqpClientBusMode extends BusModBase
         int port = getOptionalIntConfig("port", 5672);
 
         String address = getOptionalStringConfig("address", "vertx.mod-amqp");
-        JsonArray addressArray = this.getOptionalArrayConfig("addresses", defaultAddressArray);
 
         client = new AmqpClient(vertx.createNetClient());
 

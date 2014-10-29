@@ -41,5 +41,5 @@ public interface EventHandler
 
     void onCreditOffered(InboundLink link, int offered);
 
-    void onMessage(InboundLink link, Message msg);
+    void onMessage(InboundLink link, AmqpMessage msg);
 }

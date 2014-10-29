@@ -39,31 +39,22 @@ import org.apache.qpid.proton.engine.Delivery;
 import org.apache.qpid.proton.engine.Link;
 import org.apache.qpid.proton.engine.Receiver;
 import org.apache.qpid.proton.engine.Sender;
-import org.apache.qpid.proton.engine.Session;
-import org.splash.messaging.Action;
-import org.splash.messaging.CreditMode;
-import org.splash.messaging.InboundLink;
-import org.splash.messaging.InboundLinkMode;
-import org.splash.messaging.Message;
-import org.splash.messaging.MessageDisposition;
-import org.splash.messaging.MessageFormatException;
-import org.splash.messaging.MessagingException;
-import org.splash.messaging.NetworkException;
-import org.splash.messaging.OutboundLink;
-import org.splash.messaging.OutboundLinkMode;
-import org.splash.messaging.ReasonCode;
 
-class Session extends ContextAwareImpl implements org.splash.messaging.Session, Action
+class Session
 {
+    static final int CUMULATIVE = 0x01;
+
+    static final int SETTLE = 0x02;
+
     private static final DeliveryState ACCEPTED = Accepted.getInstance();
 
     private static final DeliveryState REJECTED = new Rejected();
 
     private static final DeliveryState RELEASED = Released.getInstance();
 
-    private BaseConnection _conn;
+    private Connection _conn;
 
-    private Session _ssn;
+    private org.apache.qpid.proton.engine.Session _ssn;
 
     private AtomicBoolean _closed = new AtomicBoolean(false);
 
@@ -81,34 +72,20 @@ class Session extends ContextAwareImpl implements org.splash.messaging.Session, 
 
     private final String _id;
 
-    Session(BaseConnection conn, Session ssn)
+    Session(Connection conn, org.apache.qpid.proton.engine.Session ssn)
     {
         _id = UUID.randomUUID().toString();
         _conn = conn;
         _ssn = ssn;
     }
 
-    void init() throws NetworkException
+    void open()
     {
         _ssn.open();
         _conn.write();
     }
 
-    @Override
-    public void accept() throws NetworkException
-    {
-        init();
-    }
-
-    @Override
-    public void reject(ReasonCode code, String desc, String alternateAddress)
-    {
-        // TODO Auto-generated method stub
-    }
-
-    @Override
-    public OutboundLink createOutboundLink(String address, OutboundLinkMode mode) throws NetworkException,
-            MessagingException
+    public OutboundLink createOutboundLink(String address, OutboundLinkMode mode) throws MessagingException
     {
         checkClosed();
         Sender sender;
@@ -139,9 +116,8 @@ class Session extends ContextAwareImpl implements org.splash.messaging.Session, 
         return outLink;
     }
 
-    @Override
     public InboundLink createInboundLink(String address, InboundLinkMode mode, CreditMode creditMode)
-            throws NetworkException, MessagingException
+            throws MessagingException
     {
         Receiver receiver;
         Source source = new Source();
@@ -184,9 +160,8 @@ class Session extends ContextAwareImpl implements org.splash.messaging.Session, 
         return inLink;
     }
 
-    @Override
-    public void disposition(Message msg, MessageDisposition disposition, int... flags) throws MessageFormatException,
-            MessagingException, NetworkException
+    public void disposition(AmqpMessage msg, MessageDisposition disposition, int... flags) throws MessageFormatException,
+            MessagingException
     {
         switch (disposition)
         {
@@ -202,19 +177,17 @@ class Session extends ContextAwareImpl implements org.splash.messaging.Session, 
         }
     }
 
-    @Override
-    public void settle(Message msg, int... flags) throws MessageFormatException, MessagingException, NetworkException
+    public void settle(AmqpMessage msg, int... flags) throws MessageFormatException, MessagingException
     {
         settle(convertMessage(msg), flags.length == 0 ? false : (flags[0] & CUMULATIVE) != 0, true);
     }
 
-    @Override
-    public void close() throws NetworkException
+    public void close()
     {
         if (!_closed.get())
         {
             closeImpl();
-            _conn.removeSession(_ssn);
+            // _conn.removeSession(_ssn);
             _conn.write();
         }
     }
@@ -234,8 +207,8 @@ class Session extends ContextAwareImpl implements org.splash.messaging.Session, 
     {
         _links.remove(link);
     }
-    
-    BaseConnection getConnection()
+
+    Connection getConnection()
     {
         return _conn;
     }
@@ -263,7 +236,7 @@ class Session extends ContextAwareImpl implements org.splash.messaging.Session, 
         }
     }
 
-    void disposition(InboundMessage msg, DeliveryState state, int... flags) throws NetworkException
+    void disposition(InboundMessage msg, DeliveryState state, int... flags)
     {
         int flag = flags.length == 1 ? flags[0] : 0;
         boolean cumilative = (flag & CUMULATIVE) != 0;
@@ -289,7 +262,7 @@ class Session extends ContextAwareImpl implements org.splash.messaging.Session, 
         _conn.write();
     }
 
-    void settle(InboundMessage msg, boolean cumilative, boolean write) throws NetworkException
+    void settle(InboundMessage msg, boolean cumilative, boolean write)
     {
         long count = cumilative ? _lastSettled.get() : msg.getSequence();
         long end = msg.getSequence();
@@ -312,7 +285,7 @@ class Session extends ContextAwareImpl implements org.splash.messaging.Session, 
         _conn.write();
     }
 
-    InboundMessage convertMessage(Message msg) throws MessageFormatException, MessagingException
+    InboundMessage convertMessage(AmqpMessage msg) throws MessageFormatException, MessagingException
     {
         if (!(msg instanceof InboundMessage))
         {

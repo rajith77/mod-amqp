@@ -29,157 +29,134 @@ import org.apache.qpid.proton.amqp.messaging.ApplicationProperties;
 import org.apache.qpid.proton.amqp.messaging.Data;
 import org.apache.qpid.proton.amqp.messaging.DeliveryAnnotations;
 import org.apache.qpid.proton.amqp.messaging.MessageAnnotations;
-import org.apache.qpid.proton.message.Message;
 
 @SuppressWarnings("rawtypes")
-public class Message implements org.splash.messaging.Message
+public class AmqpMessage
 {
-    private Message _msg;
+    private org.apache.qpid.proton.message.Message _msg;
 
     private Object _content;
 
-    Message()
+    AmqpMessage()
     {
         _msg = Proton.message();
     }
 
-    Message(Message msg)
+    AmqpMessage(org.apache.qpid.proton.message.Message msg)
     {
         _msg = msg;
     }
 
-    Message getProtocolMessage()
+    org.apache.qpid.proton.message.Message getProtocolMessage()
     {
         return _msg;
     }
 
-    @Override
     public boolean isDurable()
     {
         return _msg.isDurable();
     }
 
-    @Override
     public long getDeliveryCount()
     {
         return _msg.getDeliveryCount();
     }
 
-    @Override
     public short getPriority()
     {
         return _msg.getPriority();
     }
 
-    @Override
     public boolean isFirstAcquirer()
     {
         return _msg.isFirstAcquirer();
     }
 
-    @Override
     public long getTtl()
     {
         return _msg.getTtl();
     }
 
-    @Override
     public Object getMessageId()
     {
         return _msg.getMessageId();
     }
 
-    @Override
     public long getGroupSequence()
     {
         return _msg.getGroupSequence();
     }
 
-    @Override
     public String getReplyToGroupId()
     {
         return _msg.getReplyToGroupId();
     }
 
-    @Override
     public long getCreationTime()
     {
         return _msg.getCreationTime();
     }
 
-    @Override
     public String getAddress()
     {
         return _msg.getAddress();
     }
 
-    @Override
     public byte[] getUserId()
     {
         return _msg.getUserId();
     }
 
-    @Override
     public String getReplyTo()
     {
         return _msg.getReplyTo();
     }
 
-    @Override
     public String getGroupId()
     {
         return _msg.getGroupId();
     }
 
-    @Override
     public String getContentType()
     {
         return _msg.getContentType();
     }
 
-    @Override
     public long getExpiryTime()
     {
         return _msg.getExpiryTime();
     }
 
-    @Override
     public Object getCorrelationId()
     {
         return _msg.getCorrelationId();
     }
 
-    @Override
     public String getContentEncoding()
     {
         return _msg.getContentEncoding();
     }
 
-    @Override
     public String getSubject()
     {
         return _msg.getSubject();
     }
 
-    @Override
     public Map getMessageAnnotations()
     {
         return _msg.getMessageAnnotations().getValue();
     }
 
-    @Override
     public Map getDeliveryAnnotations()
     {
         return _msg.getDeliveryAnnotations().getValue();
     }
 
-    @Override
     public Map getApplicationProperties()
     {
         return _msg.getApplicationProperties().getValue();
     }
 
-    @Override
     public Object getContent()
     {
         if (_content == null)
@@ -199,135 +176,113 @@ public class Message implements org.splash.messaging.Message
         return _content;
     }
 
-    @Override
     public void setDurable(boolean durable)
     {
         _msg.setDurable(durable);
     }
 
-    @Override
     public void setTtl(long ttl)
     {
         _msg.setTtl(ttl);
     }
 
-    @Override
     public void setDeliveryCount(long deliveryCount)
     {
         _msg.setDeliveryCount(deliveryCount);
     }
 
-    @Override
     public void setFirstAcquirer(boolean firstAcquirer)
     {
         _msg.setFirstAcquirer(firstAcquirer);
     }
 
-    @Override
     public void setPriority(short priority)
     {
         _msg.setPriority(priority);
     }
 
-    @Override
     public void setGroupSequence(long groupSequence)
     {
         _msg.setGroupSequence(groupSequence);
     }
 
-    @Override
     public void setUserId(byte[] userId)
     {
         _msg.setUserId(userId);
     }
 
-    @Override
     public void setCreationTime(long creationTime)
     {
         _msg.setCreationTime(creationTime);
     }
 
-    @Override
     public void setSubject(String subject)
     {
         _msg.setSubject(subject);
     }
 
-    @Override
     public void setGroupId(String groupId)
     {
         _msg.setGroupId(groupId);
     }
 
-    @Override
     public void setAddress(String to)
     {
         _msg.setAddress(to);
     }
 
-    @Override
     public void setExpiryTime(long absoluteExpiryTime)
     {
         _msg.setExpiryTime(absoluteExpiryTime);
     }
 
-    @Override
     public void setReplyToGroupId(String replyToGroupId)
     {
         _msg.setReplyToGroupId(replyToGroupId);
     }
 
-    @Override
     public void setContentEncoding(String contentEncoding)
     {
         _msg.setContentEncoding(contentEncoding);
     }
 
-    @Override
     public void setContentType(String contentType)
     {
         _msg.setContentType(contentType);
     }
 
-    @Override
     public void setReplyTo(String replyTo)
     {
         _msg.setReplyTo(replyTo);
     }
 
-    @Override
     public void setCorrelationId(Object correlationId)
     {
         _msg.setCorrelationId(correlationId);
     }
 
-    @Override
     public void setMessageId(Object messageId)
     {
         _msg.setMessageId(messageId);
     }
 
     @SuppressWarnings("unchecked")
-    @Override
     public void setMessageAnnotations(Map map)
     {
         _msg.setMessageAnnotations(new MessageAnnotations(map));
     }
 
     @SuppressWarnings("unchecked")
-    @Override
     public void setDeliveryAnnotations(Map map)
     {
         _msg.setDeliveryAnnotations(new DeliveryAnnotations(map));
     }
 
-    @Override
     public void setApplicationProperties(Map map)
     {
         _msg.setApplicationProperties(new ApplicationProperties(map));
     }
 
-    @Override
     public void setContent(Object content)
     {
         if (content instanceof byte[])

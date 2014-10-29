@@ -17,23 +17,20 @@ package com.tworlabs.vertx.mod.amqp;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.concurrent.CountDownLatch;
 
-import org.vertx.java.core.Handler;
-import org.vertx.java.core.buffer.Buffer;
-import org.vertx.java.core.json.JsonObject;
-import org.vertx.java.core.net.NetSocket;
-import org.apache.qpid.proton.amqp.Symbol;
-import org.apache.qpid.proton.amqp.messaging.Source;
-import org.apache.qpid.proton.amqp.messaging.Target;
-import org.apache.qpid.proton.amqp.transport.ErrorCondition;
+import org.apache.qpid.proton.Proton;
 import org.apache.qpid.proton.engine.Collector;
 import org.apache.qpid.proton.engine.Delivery;
-import org.apache.qpid.proton.engine.Endpoint;
 import org.apache.qpid.proton.engine.EndpointState;
 import org.apache.qpid.proton.engine.Event;
 import org.apache.qpid.proton.engine.Link;
+import org.apache.qpid.proton.engine.Receiver;
+import org.apache.qpid.proton.engine.Sender;
 import org.apache.qpid.proton.engine.Transport;
+import org.apache.qpid.proton.message.Message;
+import org.vertx.java.core.Handler;
+import org.vertx.java.core.buffer.Buffer;
+import org.vertx.java.core.net.NetSocket;
 
 public class Connection
 {
@@ -49,27 +46,26 @@ public class Connection
 
     private final MessageFactory messageFactory = new MessageFactory();
 
-    private int linkCounter = 0;
-
     private boolean closed = false;
 
     private final ArrayList<Handler<Void>> disconnectHandlers = new ArrayList<Handler<Void>>();
 
-    private final CountDownLatch _connectionReady = new CountDownLatch(1);
-    
-    public Connection(NetSocket s)
+    private final EventHandler _eventHandler;
+
+    public Connection(NetSocket s, EventHandler handler)
     {
         socket = s;
         socket.dataHandler(new DataHandler());
         socket.drainHandler(new DrainHandler());
         socket.endHandler(new EosHandler());
-        
+        _eventHandler = handler;
+
         connection = org.apache.qpid.proton.engine.Connection.Factory.create();
         transport = org.apache.qpid.proton.engine.Transport.Factory.create();
         _collector = Collector.Factory.create();
-        
+
         connection.setContext(this);
-        connection.collect(_collector);        
+        connection.collect(_collector);
         transport.bind(connection);
         _session = connection.session();
     }
@@ -83,15 +79,7 @@ public class Connection
     {
         connection.open();
         _session.open();
-        doOutput();
-        try
-        {
-            _connectionReady.await();
-        }
-        catch (InterruptedException e)
-        {
-            //
-        }
+        write();
     }
 
     public boolean isOpen()
@@ -104,127 +92,112 @@ public class Connection
     {
         connection.close();
     }
-
-    public Sender createSender(String address)
-    {
-        String name = address + "_" + (++linkCounter);
-        org.apache.qpid.proton.engine.Sender l = sessionFactory.get().sender(name);
-        Target t = new Target();
-        t.setAddress(address);
-        l.setTarget(t);
-        Sender s = new Sender(l, messageFactory);
-        l.setContext(s);
-        return s;
-    }
-
-    private Receiver createReceiver(String name, Source source)
-    {
-        org.apache.qpid.proton.engine.Receiver l = sessionFactory.get().receiver(name);
-        l.setSource(source);
-        Receiver r = new Receiver(l, messageFactory);
-        l.setContext(r);
-        return r;
-    }
-
-    public Receiver createReceiver(String address)
-    {
-        String name = address + "_" + (++linkCounter);
-        Source source = new Source();
-        source.setAddress(address);
-        // TODO: support for filter
-        return createReceiver(name, source);
-    }
-
-    public Receiver createReceiver()
-    {
-        String name = "dynamic_" + (++linkCounter);
-        Source source = new Source();
-        source.setDynamic(true);
-        return createReceiver(name, source);
-    }
-
-    private void linkStateChanged(Link l)
-    {
-        if (l instanceof org.apache.qpid.proton.engine.Sender)
-        {
-            sndHandler.changed(l);
-        }
-        else
-        {
-            rcvHandler.changed(l);
-        }
-    }
-
-    private void handleDeliveryEvent(Delivery d)
-    {
-        Link l = d.getLink();
-        if (d.isReadable())
-        {
-            ((Receiver) l.getContext()).recv(d);
-        }
-        else if (d.isUpdated())
-        {
-            boolean isSender = l instanceof org.apache.qpid.proton.engine.Sender;
-            // TODO
-            if (d.isSettled())
-            {
-                // incoming message settled
-                // outgoing message settled
-            }
-            else
-            {
-                // incoming message state changed (but not settled)
-                // outgoing message state changed (but not settled)
-            }
-        }
-        else if (d.isWritable())
-        {
-            // ???
-        }
-        else
-        {
-            // ???
-        }
-    }
-
     private void processEvents()
     {
         connection.collect(_collector);
-        Event e = _collector.peek();
-        while (e != null)
+        Event event = _collector.peek();
+        while (event != null)
         {
-            switch (e.getType())
+            switch (event.getType())
             {
-            case CONNECTION_REMOTE_STATE:
-                conHandler.changed(connection);
+            case CONNECTION_REMOTE_OPEN:
+                 _eventHandler.onConnectionOpen(this);
                 break;
-            case SESSION_REMOTE_STATE:
-                ssnHandler.changed(e.getSession());
+            case CONNECTION_FINAL:
+                _eventHandler.onConnectionClosed(this);
                 break;
-            case LINK_REMOTE_STATE:
-                linkStateChanged(e.getLink());
+            case SESSION_REMOTE_OPEN:
+                Session ssn = (Session) event.getSession().getContext();
+                _eventHandler.onSessionOpen(ssn);
                 break;
-            case DELIVERY:
-                handleDeliveryEvent(e.getDelivery());
+            case SESSION_FINAL:
+                ssn = (Session) event.getSession().getContext();
+                _eventHandler.onSessionClosed(ssn);
+                break;
+            case LINK_REMOTE_OPEN:
+                Link link = event.getLink();
+                if (link instanceof Receiver)
+                {
+                    InboundLink inboundLink = (InboundLink) link.getContext();
+                    _eventHandler.onInboundLinkOpen(inboundLink);
+                }
+                else
+                {
+                    OutboundLink outboundLink = (OutboundLink) link.getContext();
+                    _eventHandler.onOutboundLinkOpen(outboundLink);
+                }
                 break;
             case LINK_FLOW:
-                // ?? need to indicate in some way when there is credit to send
+                link = event.getLink();
+                if (link instanceof Sender)
+                {
+                    OutboundLink outboundLink = (OutboundLink) link.getContext();
+                    _eventHandler.onOutboundLinkCredit(outboundLink, link.getCredit());
+                }
+                break;
+            case LINK_FINAL:
+                link = event.getLink();
+                if (link instanceof Receiver)
+                {
+                    InboundLink inboundLink = (InboundLink) link.getContext();
+                    _eventHandler.onInboundLinkClosed(inboundLink);
+                }
+                else
+                {
+                    OutboundLink outboundLink = (OutboundLink) link.getContext();
+                    _eventHandler.onOutboundLinkClosed(outboundLink);
+                }
                 break;
             case TRANSPORT:
-                doOutput();
+                // TODO
                 break;
-            case CONNECTION_LOCAL_STATE:
-            case SESSION_LOCAL_STATE:
-            case LINK_LOCAL_STATE:
-                // ignore
+            case DELIVERY:
+                onDelivery(event.getDelivery());
+                break;
+            default:
                 break;
             }
             _collector.pop();
-            e = _collector.peek();
+            event = _collector.peek();
         }
     }
 
-    void doOutput()
+    void onDelivery(Delivery d)
+    {
+        Link link = d.getLink();
+        if (link instanceof Receiver)
+        {
+            if (d.isPartial())
+            {
+                return;
+            }
+
+            Receiver receiver = (Receiver) link;
+            byte[] bytes = new byte[d.pending()];
+            int read = receiver.recv(bytes, 0, bytes.length);
+            Message pMsg = Proton.message();
+            pMsg.decode(bytes, 0, read);
+            receiver.advance();
+
+            InboundLink inLink = (InboundLink) link.getContext();
+            Session ssn = inLink.getSession();
+            AmqpMessage msg = new InboundMessage(ssn.getID(), d.getTag(), ssn.getNextIncommingSequence(),
+                    d.isSettled(), pMsg);
+            _eventHandler.onMessage(inLink, msg);
+        }
+        else
+        {
+            if (d.remotelySettled())
+            {
+                Tracker tracker = (Tracker) d.getContext();
+                tracker.setDisposition(d.getRemoteState());
+                tracker.markSettled();
+                _eventHandler.onSettled(tracker);
+            }
+        }
+    }
+    
+    void write()
     {
         if (socket.writeQueueFull())
         {
@@ -266,7 +239,7 @@ public class Connection
     {
         public void handle(Void v)
         {
-            doOutput();
+            write();
         }
     }
 

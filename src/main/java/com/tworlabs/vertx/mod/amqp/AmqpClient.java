@@ -46,7 +46,7 @@ public class AmqpClient
             {
                 if (result.succeeded())
                 {
-                    connection = new Connection(result.result());
+                    connection = new Connection(result.result(), null);
                     connection.open();
                     connectHandler.handle(new AsyncResultImpl<Connection>(connection));
                 }

@@ -31,8 +31,7 @@ import org.apache.qpid.proton.message.Message;
 
 class MessageFactory
 {
-    private byte[] outbuffer = new byte[1024 * 10];// TODO: proper buffer
-                                                   // management
+    private byte[] outbuffer = new byte[1024 * 10];
 
     private void convert(JsonObject in, Properties out)
     {
@@ -86,18 +85,21 @@ class MessageFactory
         // TODO: handle other fields
     }
 
-    Message convert(JsonObject in)
+    Message convert(JsonObject in) throws MessageFormatException
     {
-        Message out = factory.createMessage();
+        Message out = Message.Factory.create();
+
         if (in.containsField("properties"))
         {
             out.setProperties(new Properties());
             convert(in.getObject("properties"), out.getProperties());
         }
+
         if (in.containsField("application_properties"))
         {
             out.setApplicationProperties(new ApplicationProperties(in.getObject("application_properties").toMap()));
         }
+
         if (in.containsField("body"))
         {
             String bodyType = in.getString("body_type");
@@ -124,8 +126,7 @@ class MessageFactory
             }
             else
             {
-                // TODO: pick proper exception type
-                throw new RuntimeException("Unrecognised body type: " + bodyType);
+                throw new MessageFormatException("Unrecognised body type: " + bodyType);
             }
         }
         System.out.println("Converted " + in + " to AMQP 1.0 message: " + out);
@@ -198,7 +199,7 @@ class MessageFactory
         return out;
     }
 
-    void send(org.apache.qpid.proton.engine.Sender sender, JsonObject message)
+    /*void send(org.apache.qpid.proton.engine.Sender sender, JsonObject message)
     {
         Message m = convert(message);
         int written = m.encode(outbuffer, 0, outbuffer.length);
@@ -211,5 +212,5 @@ class MessageFactory
         Message m = factory.createMessage();
         int read = m.decode(buffer, offset, length);
         return convert(m);
-    }
+    }*/
 }

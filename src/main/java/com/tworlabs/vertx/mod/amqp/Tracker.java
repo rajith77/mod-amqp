@@ -5,15 +5,8 @@ import java.util.concurrent.TimeUnit;
 import org.apache.qpid.proton.amqp.messaging.Accepted;
 import org.apache.qpid.proton.amqp.messaging.Rejected;
 import org.apache.qpid.proton.amqp.messaging.Released;
-import org.splash.messaging.DeliveryState;
-import org.splash.messaging.MessageDisposition;
-import org.splash.messaging.MessagingException;
-import org.splash.messaging.TimeoutException;
-import org.splash.messaging.Tracker;
-import org.splash.util.ConditionManager;
-import org.splash.util.ConditionManagerTimeoutException;
 
-public class Tracker extends ContextAwareImpl implements Tracker
+public class Tracker
 {
     private MessageDisposition _disposition = MessageDisposition.UNKNOWN;
 
@@ -30,19 +23,16 @@ public class Tracker extends ContextAwareImpl implements Tracker
         _ssn = ssn;
     }
 
-    @Override
     public DeliveryState getState()
     {
         return _state;
     }
 
-    @Override
     public MessageDisposition getDisposition()
     {
         return _disposition;
     }
 
-    @Override
     public void awaitSettlement(int... flags) throws MessagingException
     {
         _pending.waitUntilFalse();
@@ -53,7 +43,6 @@ public class Tracker extends ContextAwareImpl implements Tracker
         }
     }
 
-    @Override
     public void awaitSettlement(long timeout, TimeUnit unit, int... flags) throws MessagingException, TimeoutException
     {
         try
@@ -71,7 +60,6 @@ public class Tracker extends ContextAwareImpl implements Tracker
         }
     }
 
-    @Override
     public boolean isSettled()
     {
         return _settled;

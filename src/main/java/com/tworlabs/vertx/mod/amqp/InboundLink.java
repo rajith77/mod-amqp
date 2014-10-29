@@ -24,16 +24,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.qpid.proton.engine.Link;
 import org.apache.qpid.proton.engine.Receiver;
-import org.splash.messaging.Action;
-import org.splash.messaging.CreditMode;
-import org.splash.messaging.InboundLink;
-import org.splash.messaging.MessagingException;
-import org.splash.messaging.NetworkException;
-import org.splash.messaging.ReasonCode;
 
-class InboundLink extends BaseLink implements Action, InboundLink
+class InboundLink extends BaseLink
 {
-    private static int DEFAULT_CREDITS = Integer.getInteger("splash.default.credits", 1);
+    private static int DEFAULT_CREDITS = 1;
 
     private CreditMode _creditMode;
 
@@ -47,8 +41,8 @@ class InboundLink extends BaseLink implements Action, InboundLink
         _creditMode = creditMode;
     }
 
-    @Override
-    void init() throws NetworkException
+    
+    void init()
     {
         _link.open();
         if (_creditMode == CreditMode.AUTO && DEFAULT_CREDITS > 0)
@@ -59,7 +53,7 @@ class InboundLink extends BaseLink implements Action, InboundLink
         _ssn.getConnection().write();
     }
 
-    void issueCredits(int credits, boolean drain) throws NetworkException
+    void issueCredits(int credits, boolean drain)
     {
         Receiver receiver = (Receiver) _link;
         if (drain)
@@ -75,7 +69,7 @@ class InboundLink extends BaseLink implements Action, InboundLink
         _unsettled.decrementAndGet();
     }
 
-    void issuePostReceiveCredit() throws NetworkException
+    void issuePostReceiveCredit()
     {
         if (_creditMode == CreditMode.AUTO)
         {
@@ -90,21 +84,21 @@ class InboundLink extends BaseLink implements Action, InboundLink
         }
     }
 
-    @Override
+    
     public CreditMode getCreditMode()
     {
         return _creditMode;
     }
 
-    @Override
+    
     public int getUnsettled() throws MessagingException
     {
         checkClosed();
         return _unsettled.get();
     }
 
-    @Override
-    public void setCredits(int credits) throws MessagingException, NetworkException
+    
+    public void setCredits(int credits) throws MessagingException
     {
         checkClosed();
         if (credits < 0)
@@ -114,17 +108,4 @@ class InboundLink extends BaseLink implements Action, InboundLink
         _credits = credits;
         issueCredits(_credits, _creditMode == CreditMode.AUTO);
     }
-
-    @Override
-    public void accept() throws NetworkException
-    {
-        init();
-    }
-
-    @Override
-    public void reject(ReasonCode code, String desc, String alternateAddress) throws NetworkException
-    {
-        // TODO Auto-generated method stub
-    }
-
 }
