@@ -17,17 +17,17 @@ package com.tworlabs.vertx.mod.amqp;
 
 import java.util.List;
 import java.util.Map;
-import org.vertx.java.core.json.JsonArray;
-import org.vertx.java.core.json.JsonElement;
-import org.vertx.java.core.json.JsonObject;
+
 import org.apache.qpid.proton.amqp.Binary;
-import org.apache.qpid.proton.amqp.messaging.ApplicationProperties;
 import org.apache.qpid.proton.amqp.messaging.AmqpSequence;
 import org.apache.qpid.proton.amqp.messaging.AmqpValue;
+import org.apache.qpid.proton.amqp.messaging.ApplicationProperties;
 import org.apache.qpid.proton.amqp.messaging.Data;
 import org.apache.qpid.proton.amqp.messaging.Properties;
 import org.apache.qpid.proton.amqp.messaging.Section;
 import org.apache.qpid.proton.message.Message;
+import org.vertx.java.core.json.JsonArray;
+import org.vertx.java.core.json.JsonObject;
 
 class MessageFactory
 {
@@ -198,19 +198,4 @@ class MessageFactory
         }
         return out;
     }
-
-    /*void send(org.apache.qpid.proton.engine.Sender sender, JsonObject message)
-    {
-        Message m = convert(message);
-        int written = m.encode(outbuffer, 0, outbuffer.length);
-        sender.send(outbuffer, 0, written);
-        sender.advance();
-    }
-
-    JsonObject decode(byte[] buffer, int offset, int length)
-    {
-        Message m = factory.createMessage();
-        int read = m.decode(buffer, offset, length);
-        return convert(m);
-    }*/
 }

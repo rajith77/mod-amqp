@@ -58,33 +58,38 @@ class OutboundLink extends BaseLink
         checkClosed();
         if (msg instanceof AmqpMessage)
         {
-            Sender sender = (Sender) _link;
-            byte[] tag = longToBytes(_ssn.getNextDeliveryTag());
-            Delivery delivery = sender.delivery(tag);
-            Tracker tracker = new Tracker(_ssn);
-            delivery.setContext(tracker);
-            if (sender.getSenderSettleMode() == SenderSettleMode.SETTLED)
-            {
-                delivery.settle();
-                tracker.markSettled();
-            }
-
-            org.apache.qpid.proton.message.Message m = ((AmqpMessage) msg).getProtocolMessage();
-            if (m.getAddress() == null)
-            {
-                m.setAddress(_address);
-            }
-            byte[] buffer = new byte[1024];
-            int encoded = m.encode(buffer, 0, buffer.length);
-            sender.send(buffer, 0, encoded);
-            sender.advance();
-            _ssn.getConnection().write();
-            return tracker;
+            return send(msg.getProtocolMessage());
         }
         else
         {
             throw new MessageFormatException("Unsupported message implementation");
         }
+    }
+
+    public Tracker send(org.apache.qpid.proton.message.Message m) throws MessageFormatException, MessagingException
+    {
+        checkClosed();
+        Sender sender = (Sender) _link;
+        byte[] tag = longToBytes(_ssn.getNextDeliveryTag());
+        Delivery delivery = sender.delivery(tag);
+        Tracker tracker = new Tracker(_ssn);
+        delivery.setContext(tracker);
+        if (sender.getSenderSettleMode() == SenderSettleMode.SETTLED)
+        {
+            delivery.settle();
+            tracker.markSettled();
+        }
+
+        if (m.getAddress() == null)
+        {
+            m.setAddress(_address);
+        }
+        byte[] buffer = new byte[1024];
+        int encoded = m.encode(buffer, 0, buffer.length);
+        sender.send(buffer, 0, encoded);
+        sender.advance();
+        _ssn.getConnection().write();
+        return tracker;
     }
 
     private static byte[] longToBytes(final long value)

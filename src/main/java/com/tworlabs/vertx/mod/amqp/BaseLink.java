@@ -78,4 +78,9 @@ abstract class BaseLink
     {
         return _ssn;
     }
+    
+    Connection getConnection()
+    {
+        return _ssn.getConnection();
+    }
 }

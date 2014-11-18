@@ -34,40 +34,54 @@ import org.vertx.java.core.net.NetSocket;
 
 public class Connection
 {
-    private final org.apache.qpid.proton.engine.Connection connection;
+    private final org.apache.qpid.proton.engine.Connection protonConnection;
 
-    private final Transport transport;
+    private final Transport _transport;
 
-    private final org.apache.qpid.proton.engine.Session _session;
+    private final org.apache.qpid.proton.engine.Session _protonSession;
 
-    private final NetSocket socket;
+    private final NetSocket _socket;
 
     private final Collector _collector;
 
-    private final MessageFactory messageFactory = new MessageFactory();
+    private final MessageFactory _messageFactory = new MessageFactory();
 
-    private boolean closed = false;
+    private boolean _closed = false;
 
     private final ArrayList<Handler<Void>> disconnectHandlers = new ArrayList<Handler<Void>>();
 
     private final EventHandler _eventHandler;
 
-    public Connection(NetSocket s, EventHandler handler)
+    private final ConnectionSettings _settings;
+
+    private final boolean _isInbound;
+
+    private Session _session;
+
+    public Connection(ConnectionSettings settings, NetSocket s, EventHandler handler, boolean inbound)
     {
-        socket = s;
-        socket.dataHandler(new DataHandler());
-        socket.drainHandler(new DrainHandler());
-        socket.endHandler(new EosHandler());
+        _isInbound = inbound;
+        _settings = settings;
+        _socket = s;
+        _socket.dataHandler(new DataHandler());
+        _socket.drainHandler(new DrainHandler());
+        _socket.endHandler(new EosHandler());
         _eventHandler = handler;
 
-        connection = org.apache.qpid.proton.engine.Connection.Factory.create();
-        transport = org.apache.qpid.proton.engine.Transport.Factory.create();
+        protonConnection = org.apache.qpid.proton.engine.Connection.Factory.create();
+        _transport = org.apache.qpid.proton.engine.Transport.Factory.create();
         _collector = Collector.Factory.create();
 
-        connection.setContext(this);
-        connection.collect(_collector);
-        transport.bind(connection);
-        _session = connection.session();
+        protonConnection.setContext(this);
+        protonConnection.collect(_collector);
+        _transport.bind(protonConnection);
+        _protonSession = protonConnection.session();
+        _session = new Session(this, _protonSession);
+    }
+
+    ConnectionSettings getSettings()
+    {
+        return _settings;
     }
 
     void addDisconnectHandler(Handler<Void> handler)
@@ -77,31 +91,42 @@ public class Connection
 
     public void open()
     {
-        connection.open();
-        _session.open();
+        protonConnection.open();
+        _protonSession.open();
         write();
     }
 
     public boolean isOpen()
     {
-        return !closed && connection.getLocalState() == EndpointState.ACTIVE
-                && connection.getRemoteState() == EndpointState.ACTIVE;
+        return !_closed && protonConnection.getLocalState() == EndpointState.ACTIVE
+                && protonConnection.getRemoteState() == EndpointState.ACTIVE;
     }
 
+    public boolean isInbound()
+    {
+        return _isInbound;
+    }
+    
     public void close()
     {
-        connection.close();
+        protonConnection.close();
     }
+
+    public OutboundLink createOutBoundLink(String address) throws MessagingException
+    {
+        return _session.createOutboundLink(address, OutboundLinkMode.AT_LEAST_ONCE);
+    }
+
     private void processEvents()
     {
-        connection.collect(_collector);
+        protonConnection.collect(_collector);
         Event event = _collector.peek();
         while (event != null)
         {
             switch (event.getType())
             {
             case CONNECTION_REMOTE_OPEN:
-                 _eventHandler.onConnectionOpen(this);
+                _eventHandler.onConnectionOpen(this);
                 break;
             case CONNECTION_FINAL:
                 _eventHandler.onConnectionClosed(this);
@@ -196,24 +221,24 @@ public class Connection
             }
         }
     }
-    
+
     void write()
     {
-        if (socket.writeQueueFull())
+        if (_socket.writeQueueFull())
         {
             System.out.println("Socket buffers are full for " + this);
         }
         else
         {
-            ByteBuffer b = transport.getOutputBuffer();
+            ByteBuffer b = _transport.getOutputBuffer();
             while (b.remaining() > 0)
             {
                 // TODO: what is the optimal solution here?
                 byte[] data = new byte[b.remaining()];
                 b.get(data);
-                socket.write(new Buffer(data));
-                transport.outputConsumed();
-                b = transport.getOutputBuffer();
+                _socket.write(new Buffer(data));
+                _transport.outputConsumed();
+                b = _transport.getOutputBuffer();
             }
         }
     }
@@ -226,10 +251,10 @@ public class Connection
             int start = 0;
             while (start < bytes.length)
             {
-                int count = Math.min(transport.getInputBuffer().remaining(), bytes.length - start);
-                transport.getInputBuffer().put(bytes, start, count);
+                int count = Math.min(_transport.getInputBuffer().remaining(), bytes.length - start);
+                _transport.getInputBuffer().put(bytes, start, count);
                 start += count;
-                transport.processInput();
+                _transport.processInput();
                 processEvents();
             }
         }
@@ -247,7 +272,7 @@ public class Connection
     {
         public void handle(Void v)
         {
-            closed = true;
+            _closed = true;
             for (Handler<Void> h : disconnectHandlers)
             {
                 h.handle(v);

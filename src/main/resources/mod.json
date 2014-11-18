@@ -1,9 +1,9 @@
 {
-"main":"com.tworlabs.vertx.mods.amqp.AmqpClientBusMod",
+"main":"com.tworlabs.vertx.mod.amqp.AmqpBusMod",
 "description": "Asynchronous AMQP bridge module for Vert.x",
 "licenses": ["The Apache Software License Version 2.0"],
 "author": "Rajith Attapattu <rajith77@gmail.com>",
 "developers": ["rattapat", "gsim"],
-"keywords": ["AMQP", "amqp" , "eventbus", "connector", "client", "asynchronous", "activemq", "qpid", "rabbitmq"],
+"keywords": ["AMQP", "amqp" , "eventbus", "connector", "client", "asynchronous", "activemq", "qpid"],
 "homepage": "https://github.com/rajith77/mod-amqp"
 }

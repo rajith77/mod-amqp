@@ -79,6 +79,12 @@
       <version>${vertx.version}</version>
       <scope>provided</scope>
     </dependency>
+    <dependency>
+      <groupId>org.apache.qpid</groupId>
+      <artifactId>proton-j</artifactId>
+      <version>0.8</version>
+      <scope>compile</scope>
+    </dependency>
     <!--Test dependencies-->
     <dependency>
       <groupId>junit</groupId>
@@ -217,7 +223,7 @@
         <version>${maven.surefire.plugin.version}</version>
         <configuration>
           <includes>
-            <include>**/unit/*Test*.java</include>
+            <include>**/*Test*.java</include>
           </includes>
         </configuration>
       </plugin>
