@@ -48,14 +48,14 @@ Please check the examples above for sample configuration files.
   Provides custom routing information for messages flowing inbound. See *routing-property-name* and *routes*.
 
 * *routing-property-name* (Nested under *vertx.routing-outbound* or *vertx.routing-inbound*)
-  .. For outbound, this is a *property-name* that is specified in *properties* or *application-properties* section of the Json message.
+  ..For outbound, this is a *property-name* that is specified in *properties* or *application-properties* section of the Json message.
   
-  .. For inbound, this is a *property-name* specified in *application-properties* of the AMQP message.
+  ..For inbound, this is a *property-name* specified in *application-properties* of the AMQP message.
 
 * *routing-property-type*, allowed values *[ADDRESS, SUBJECT, REPLY_TO, MESSAGE_ID, CORRELATION_ID, LINK_NAME, CUSTOM]* default *ADDRESS* 
-  .. Please note this is for inbound routing only!
-  .. If *CUSTOM* is specified, it will use *routing-property-name* to figure out which property to look up.
+  ..Please note this is for inbound routing only!
+  ..If *CUSTOM* is specified, it will use *routing-property-name* to figure out which property to look up.
 
 * *routes* (Nested under *vertx.routing-outbound* or *vertx.routing-inbound*)
-  .. Provides a routing table for mapping a vertx address to an AMQP address or vice versa depending on the direction.
-  .. Supports wild card matching.
+  ..Provides a routing table for mapping a vertx address to an AMQP address or vice versa depending on the direction.
+  ..Supports wild card matching.
