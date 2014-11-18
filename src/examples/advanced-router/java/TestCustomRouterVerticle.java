@@ -13,6 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+import java.util.HashMap;
+import java.util.Map;
+
 import org.vertx.java.core.Handler;
 import org.vertx.java.core.eventbus.Message;
 import org.vertx.java.core.json.JsonObject;
@@ -31,14 +34,23 @@ public class TestCustomRouterVerticle extends Verticle implements Handler<Messag
 
         JsonObject m = new JsonObject();
         m.putString("body", "Hello from Vertx");
-
-        m.putString("routing-key", "us.ny.nyc");
+        Map<String, String> props = new HashMap<String, String>();
+        props.put("routing-key", "us.ny.nyc");
+        m.putValue("application_properties", props);
         vertx.eventBus().send("us-weather", m);
 
-        m.putString("routing-key", "us.ma.bos");
+        m = new JsonObject();
+        m.putString("body", "Hello from Vertx");
+        props = new HashMap<String, String>();
+        props.put("routing-key", "us.ma.bos");
+        m.putValue("application_properties", props);
         vertx.eventBus().send("us-weather", m);
 
-        m.putString("routing-key", "ca.on.yyz");
+        m = new JsonObject();
+        m.putString("body", "Hello from Vertx");
+        props = new HashMap<String, String>();
+        props.put("routing-key", "ca.on.yyz");
+        m.putValue("application_properties", props);
         vertx.eventBus().send("ca-weather", m);
     }
 

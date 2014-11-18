@@ -116,7 +116,7 @@ public class RouterConfig
             if (_inboundRouting.containsField("routing-property-name"))
             {
                 _inboundRoutingPropertyType = INBOUND_ROUTING_PROPERTY_TYPE.get(_inboundRouting
-                        .getString("routing-property-name"));
+                        .getString("routing-property-type"));
                 if (INBOUND_ROUTING_PROPERTY_TYPE.CUSTOM == _inboundRoutingPropertyType)
                 {
                     _inboundRoutingPropertyName = _inboundRouting.getString("routing-property-name");

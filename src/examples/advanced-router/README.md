@@ -41,7 +41,7 @@ Assumes the following commands are run from the examples/router dir.
    If you change the address, make sure you have the peer running at the correct host:port combination.
    
 2. Run the AMQP module.
-..* vertx runmod com.tworlabs~mod-amqp~1.0-SNAPSHOT -conf router.json -cluster
+..* vertx runmod com.tworlabs~mod-amqp~1.0-SNAPSHOT -conf advanced-router.json -cluster
 
 3. Run TestRouterVerticle.java
 ..* vertx run java/TestCustomRouterVerticle.java

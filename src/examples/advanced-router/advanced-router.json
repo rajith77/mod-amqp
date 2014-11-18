@@ -15,7 +15,7 @@
 	     },
 
 "vertx.routing-inbound" : {
-			"routing-property-name" : SUBJECT, 
+			"routing-property-type" : SUBJECT, 
 			"routes" :{
 						 "us.*" : "us-weather-reply",
 						 "ca.*" : "ca-weather-reply"
