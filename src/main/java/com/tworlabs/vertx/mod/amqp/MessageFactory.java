@@ -31,8 +31,6 @@ import org.vertx.java.core.json.JsonObject;
 
 class MessageFactory
 {
-    private byte[] outbuffer = new byte[1024 * 10];
-
     private void convert(JsonObject in, Properties out)
     {
         if (in.containsField("to"))
@@ -129,7 +127,6 @@ class MessageFactory
                 throw new MessageFormatException("Unrecognised body type: " + bodyType);
             }
         }
-        System.out.println("Converted " + in + " to AMQP 1.0 message: " + out);
         return out;
     }
 

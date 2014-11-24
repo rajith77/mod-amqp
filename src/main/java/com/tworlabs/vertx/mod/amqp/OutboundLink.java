@@ -35,7 +35,7 @@ class OutboundLink extends BaseLink
         super(ssn, address, link);
     }
 
-    public void offerCredits(int credits) throws MessagingException
+    void offerCredits(int credits) throws MessagingException
     {
         ((Sender) _link).offer(credits);
         _ssn.getConnection().write();
@@ -44,16 +44,15 @@ class OutboundLink extends BaseLink
     void init()
     {
         _link.open();
-        _ssn.getConnection().write();
     }
 
-    public int getUnsettled() throws MessagingException
+    int getUnsettled() throws MessagingException
     {
         checkClosed();
         return _link.getUnsettled();
     }
 
-    public Tracker send(AmqpMessage msg) throws MessageFormatException, MessagingException
+    Tracker send(AmqpMessage msg) throws MessageFormatException, MessagingException
     {
         checkClosed();
         if (msg instanceof AmqpMessage)
@@ -66,7 +65,7 @@ class OutboundLink extends BaseLink
         }
     }
 
-    public Tracker send(org.apache.qpid.proton.message.Message m) throws MessageFormatException, MessagingException
+    Tracker send(org.apache.qpid.proton.message.Message m) throws MessageFormatException, MessagingException
     {
         checkClosed();
         Sender sender = (Sender) _link;

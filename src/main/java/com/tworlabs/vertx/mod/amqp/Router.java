@@ -20,24 +20,23 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.atomic.AtomicBoolean;
 
-import org.apache.qpid.proton.message.Message;
 import org.vertx.java.core.AsyncResult;
 import org.vertx.java.core.AsyncResultHandler;
 import org.vertx.java.core.Handler;
 import org.vertx.java.core.Vertx;
 import org.vertx.java.core.eventbus.EventBus;
+import org.vertx.java.core.eventbus.Message;
 import org.vertx.java.core.json.JsonObject;
+import org.vertx.java.core.logging.Logger;
 import org.vertx.java.core.net.NetClient;
 import org.vertx.java.core.net.NetServer;
 import org.vertx.java.core.net.NetSocket;
-import org.vertx.java.core.logging.Logger;
 
+import com.tworlabs.vertx.mod.amqp.Connection.State;
 import com.tworlabs.vertx.mod.amqp.RouterConfig.RouteEntry;
 
-public class Router implements EventHandler, Handler<org.vertx.java.core.eventbus.Message<JsonObject>>
+public class Router implements EventHandler, Handler<Message<JsonObject>>
 {
     private final Vertx _vertx;
 
@@ -45,13 +44,15 @@ public class Router implements EventHandler, Handler<org.vertx.java.core.eventbu
 
     private final MessageFactory _msgFactory;
 
-    private final OutboundLink _defaultOutboundLink;
+    private OutboundLink _defaultOutboundLink;
 
     private final List<Connection> _outboundConnections = new CopyOnWriteArrayList<Connection>();
 
     private final List<InboundLink> _inboundLinks = new CopyOnWriteArrayList<InboundLink>();
 
     private final Map<String, OutboundLink> _outboundLinks = new ConcurrentHashMap<String, OutboundLink>();
+
+    private final Map<String, Message<JsonObject>> _vertxReplyTo = new ConcurrentHashMap<String, Message<JsonObject>>();
 
     private final RouterConfig _config;
 
@@ -61,8 +62,12 @@ public class Router implements EventHandler, Handler<org.vertx.java.core.eventbu
 
     private final Logger _logger;
 
+    private final String _replyToAddressPrefix;
+
     Router(Vertx vertx, MessageFactory msgFactory, RouterConfig config, Logger logger) throws MessagingException
     {
+        System.out.println("vertx.home " + System.getProperty("vertx.home"));
+
         _vertx = vertx;
         _eb = _vertx.eventBus();
         _logger = logger;
@@ -70,22 +75,16 @@ public class Router implements EventHandler, Handler<org.vertx.java.core.eventbu
         _server = _vertx.createNetServer();
         _msgFactory = msgFactory;
         _config = config;
+        _replyToAddressPrefix = "amqp://" + _config.getInboundHost() + ":" + _config.getInboundPort();
 
-        _logger.info("Registering handlers");
         _eb.registerHandler(config.getDefaultHandlerAddress(), this);
-        _eb.registerHandler("address.a", this);
-        _eb.registerHandler("vertx.mod-amqp", this);
-        _logger.info("Registering default handler : " + config.getDefaultHandlerAddress());
         for (String handlerAddress : config.getHandlerAddressList())
         {
-            _logger.info("Registering handler : " + handlerAddress);
             _eb.registerHandler(handlerAddress, this);
         }
 
         _defaultOutboundLink = findOutboundLink(config.getDefaultOutboundAddress());
 
-        final AtomicBoolean serverOK = new AtomicBoolean(true);
-        final CountDownLatch latch = new CountDownLatch(1);
         _server.connectHandler(new InboundConnectionHandler(this));
         _server.listen(config.getInboundPort(), config.getInboundHost(), new AsyncResultHandler<NetServer>()
         {
@@ -93,22 +92,22 @@ public class Router implements EventHandler, Handler<org.vertx.java.core.eventbu
             {
                 if (result.failed())
                 {
-                    serverOK.set(false);
+                    _logger.warn(String.format("Server was unable to bind to %s:%s", _config.getInboundHost(),
+                            _config.getInboundPort()));
+                    // We need to stop the verticle
                 }
-                latch.countDown();
             }
         });
-        try
+        if (_logger.isInfoEnabled())
         {
-            latch.await();
-        }
-        catch (InterruptedException e)
-        {
-        }
-        if (!serverOK.get())
-        {
-            throw new MessagingException(String.format("Server was unable to bind to %s:%s", config.getInboundHost(),
-                    config.getInboundPort()));
+            StringBuilder b = new StringBuilder();
+            b.append("Configuring module \n[\n");
+            b.append("Default vertx handler address : ").append(config.getDefaultHandlerAddress()).append("\n");
+            b.append("Default vertx address : ").append(config.getDefaultInboundAddress()).append("\n");
+            b.append("Default outbound address : ").append(config.getDefaultOutboundAddress()).append("\n");
+            b.append("Handler address list : ").append(config.getHandlerAddressList()).append("\n");
+            b.append("]\n");
+            _logger.info(b.toString());
         }
     }
 
@@ -129,45 +128,50 @@ public class Router implements EventHandler, Handler<org.vertx.java.core.eventbu
             if (con.getSettings().getHost().equals(settings.getHost())
                     && con.getSettings().getPort() == settings.getPort())
             {
-                return con;
+                if (con.getState() == State.CONNECTED)
+                {
+                    return con;
+                }
+                else
+                {
+                    _logger.info(String.format("Attempting re-connection to AMQP peer at %s:%s", settings.getHost(),
+                            settings.getPort()));
+                    break;
+                }
             }
         }
 
-        ConnectionResultHander handler = new ConnectionResultHander(settings, this);
+        Connection connection = new Connection(_logger, settings, this, false);
+        ConnectionResultHander handler = new ConnectionResultHander(connection);
         _client.connect(settings.getPort(), settings.getHost(), handler);
-        _logger.info(String.format("Connecting to AMQP peer at %s:%s", settings.getHost(), settings.getPort()));
-        return handler.getConnection();
+        _logger.info(String.format("Attempting connection to AMQP peer at %s:%s", settings.getHost(),
+                settings.getPort()));
+        _outboundConnections.add(connection);
+        return connection;
     }
 
     OutboundLink findOutboundLink(String url) throws MessagingException
     {
         if (_outboundLinks.containsKey(url))
         {
-            return _outboundLinks.get(url);
-        }
-        else
-        {
-            final ConnectionSettings settings = URLParser.parse(url);
-            Connection con = findConnection(settings);
-            OutboundLink link = con.createOutBoundLink(settings.getTarget());
-            _outboundLinks.put(url, link);
-            return link;
-        }
-    }
-
-    void send(String address, JsonObject ebMsg) throws MessagingException
-    {
-        Message msg = _msgFactory.convert(ebMsg);
-        List<OutboundLink> links = routeOutbound(address);
-        if (links.size() == 0)
-        {
-            links.add(_defaultOutboundLink);
+            OutboundLink link = _outboundLinks.get(url);
+            if (link.getConnection().getState() != State.FAILED)
+            {
+                return link;
+            }
+            else
+            {
+                // remove dead link
+                _outboundLinks.remove(url);
+            }
         }
 
-        for (OutboundLink link : links)
-        {
-            link.send(_msgFactory.convert(ebMsg));
-        }
+        final ConnectionSettings settings = URLParser.parse(url);
+        Connection con = findConnection(settings);
+        OutboundLink link = con.createOutBoundLink(settings.getTarget());
+        _logger.info(String.format("Created outbound link %s @ %s:%s", settings.getTarget(), settings.getHost(),
+                settings.getPort()));
+        return link;
     }
 
     List<OutboundLink> routeOutbound(String address) throws MessagingException
@@ -188,13 +192,50 @@ public class Router implements EventHandler, Handler<org.vertx.java.core.eventbu
     }
 
     @Override
-    public void handle(org.vertx.java.core.eventbus.Message<JsonObject> m)
+    public void handle(Message<JsonObject> m)
     {
         try
         {
-            System.out.println("Received msg " + m);
-            _logger.info("Received msg " + m);
-            send(m.address(), m.body());
+            org.apache.qpid.proton.message.Message msg = _msgFactory.convert(m.body());
+            if (msg.getReplyTo() == null && m.replyAddress() != null)
+            {
+                msg.setReplyTo(_replyToAddressPrefix + "/" + m.replyAddress());
+            }
+            List<OutboundLink> links = routeOutbound(m.address());
+            if (links.size() == 0)
+            {
+                if (_defaultOutboundLink.getConnection().getState() == State.FAILED)
+                {
+                    _logger.info("Reconnecting to default outbound link");
+                    _defaultOutboundLink = findOutboundLink(_config.getDefaultOutboundAddress());
+                }
+                links.add(_defaultOutboundLink);
+            }
+
+            if (m.replyAddress() != null)
+            {
+                _vertxReplyTo.put(m.replyAddress(), m);
+            }
+
+            if (_logger.isInfoEnabled())
+            {
+                _logger.info("\n============= Outbound Routing ============");
+                _logger.info(String.format("Received msg from vertx [to=%s, reply-to=%s, body=%s] ", m.address(),
+                        m.replyAddress(), m.body().encode(), m.replyAddress()));
+                StringBuilder b = new StringBuilder("Matched the following outbound links [");
+                for (OutboundLink link : links)
+                {
+                    b.append(link).append(" ");
+                }
+                b.append("].");
+                _logger.info(b.toString());
+                _logger.info("============= /Outbound Routing ============/n");
+            }
+
+            for (OutboundLink link : links)
+            {
+                link.send(msg);
+            }
         }
         catch (MessagingException e)
         {
@@ -274,6 +315,14 @@ public class Router implements EventHandler, Handler<org.vertx.java.core.eventbu
 
     public void onInboundLinkOpen(InboundLink link)
     {
+        try
+        {
+            link.setCredits(10);
+        }
+        catch (MessagingException e)
+        {
+            e.printStackTrace();
+        }
     }
 
     public void onInboundLinkClosed(InboundLink link)
@@ -287,6 +336,38 @@ public class Router implements EventHandler, Handler<org.vertx.java.core.eventbu
     public void onMessage(InboundLink link, AmqpMessage msg)
     {
         JsonObject out = _msgFactory.convert(msg.getProtocolMessage());
+
+        // Handle replyTo
+        if (msg.getAddress() != null)
+        {
+            try
+            {
+                ConnectionSettings settings = URLParser.parse(msg.getAddress());
+                if (_vertxReplyTo.containsKey(settings.getTarget()))
+                {
+                    if (_logger.isInfoEnabled())
+                    {
+                        _logger.info("\n============= Inbound Routing (Reply-to) ============");
+                        _logger.info(String.format(
+                                "Received message [to=%s, reply-to=%s, body=%s] from AMQP peer '%s'", msg.getAddress(),
+                                msg.getReplyTo(), msg.getContent(), link));
+                        _logger.info("It's a reply to vertx message with reply-to=" + settings.getTarget());
+                        _logger.info("============= /Inbound Routing (Reply-to) ============\n");
+                    }
+                    Message<JsonObject> request = _vertxReplyTo.get(settings.getTarget());
+                    request.reply(out);
+                    _vertxReplyTo.remove(settings.getTarget());
+                    request = null;
+                    return;
+                }
+            }
+            catch (Exception e)
+            {
+                e.printStackTrace();
+                // ignore
+            }
+        }
+
         String key = null;
         switch (_config.getInboundRoutingPropertyType())
         {
@@ -304,8 +385,10 @@ public class Router implements EventHandler, Handler<org.vertx.java.core.eventbu
             break;
         case ADDRESS:
             key = msg.getAddress();
+            break;
         case REPLY_TO:
             key = msg.getReplyTo();
+            break;
         case CUSTOM:
             key = (String) msg.getApplicationProperties().get(_config.getInboundRoutingPropertyName());
             break;
@@ -338,63 +421,88 @@ public class Router implements EventHandler, Handler<org.vertx.java.core.eventbu
 
         for (String address : addressList)
         {
-            _eb.send(address, out);
+            if (msg.getReplyTo() != null)
+            {
+                _eb.send(address, out, new ReplyHandler(msg.getProtocolMessage()));
+            }
+            else
+            {
+                _eb.send(address, out);
+            }
+        }
+        if (_logger.isInfoEnabled())
+        {
+            _logger.info("\n============= Inbound Routing ============");
+            _logger.info(String.format("Received message [to=%s, reply-to=%s, body=%s] from AMQP peer '%s'",
+                    msg.getAddress(), msg.getReplyTo(), msg.getContent(), link));
+            _logger.info(String.format("Inbound routing info [key=%s, value=%s]",
+                    _config.getInboundRoutingPropertyType(), key));
+            _logger.info("Matched the following vertx address list : " + addressList);
+            _logger.info("============= /Inbound Routing ============\n");
         }
     }
 
     // ---------- / Event Handler -----------------------
 
     // ---------- Helper classes
+    class ReplyHandler implements Handler<Message<JsonObject>>
+    {
+        org.apache.qpid.proton.message.Message _protocolMsg;
+
+        ReplyHandler(org.apache.qpid.proton.message.Message m)
+        {
+            _protocolMsg = m;
+        }
+
+        @Override
+        public void handle(Message<JsonObject> msg)
+        {
+            try
+            {
+                _logger.info("\n============= Outbound Routing (Reply To) ============");
+                _logger.info("Routing vertx reply to AMQP space");
+                OutboundLink link = findOutboundLink(_protocolMsg.getReplyTo());
+                link.send(_msgFactory.convert(msg.body()));
+                _logger.info("============= /Outbound Routing (Reply To) ============\n");
+            }
+            catch (MessagingException e)
+            {
+                e.printStackTrace();
+            }
+        }
+    }
+
     class ConnectionResultHander implements Handler<AsyncResult<NetSocket>>
     {
-        final CountDownLatch _resultReceived = new CountDownLatch(1);
-
-        final ConnectionSettings _settings;
-
-        EventHandler _handler;
-
         Connection _connection;
 
         Throwable _cause;
 
-        ConnectionResultHander(ConnectionSettings settings, EventHandler handler)
+        ConnectionResultHander(Connection conn)
         {
-            _settings = settings;
-            _handler = handler;
+            _connection = conn;
         }
 
+        @Override
         public void handle(AsyncResult<NetSocket> result)
         {
             if (result.succeeded())
             {
-                _connection = new Connection(_settings, result.result(), _handler, false);
+                _connection.setNetSocket(result.result());
                 _connection.open();
-                _resultReceived.countDown();
+                _logger.info(String.format("Connected to AMQP peer at %s:%s", _connection.getSettings().getHost(),
+                        _connection.getSettings().getPort()));
             }
             else
             {
                 _cause = result.cause();
-                _connection = null;
-                _resultReceived.countDown();
+                _logger.info("-------- Connection failure ----------");
+                _logger.info(String.format("Failed to establish a connection to AMQP peer at %s:%s", _connection
+                        .getSettings().getHost(), _connection.getSettings().getPort()));
+                _logger.info("Exception received", _cause);
+                _logger.info("-------- /Connection failure ----------");
+                _outboundConnections.remove(_connection);
             }
-        }
-
-        Connection getConnection() throws MessagingException
-        {
-            try
-            {
-                _resultReceived.await();
-            }
-            catch (InterruptedException e)
-            {
-                // ignore
-            }
-            if (_connection == null)
-            {
-                throw new MessagingException(String.format("Error creating connection for %s:%s", _settings.host,
-                        _settings.port), _cause);
-            }
-            return _connection;
         }
     }
 
@@ -412,7 +520,8 @@ public class Router implements EventHandler, Handler<org.vertx.java.core.eventbu
             ConnectionSettings settings = new ConnectionSettings();
             settings.setHost(sock.remoteAddress().getHostName());
             settings.setPort(sock.remoteAddress().getPort());
-            Connection connection = new Connection(settings, sock, _handler, true);
+            Connection connection = new Connection(_logger, settings, _handler, true);
+            connection.setNetSocket(sock);
             connection.open();
         }
     }

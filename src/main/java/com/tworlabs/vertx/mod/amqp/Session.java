@@ -85,7 +85,7 @@ class Session
         _conn.write();
     }
 
-    public OutboundLink createOutboundLink(String address, OutboundLinkMode mode) throws MessagingException
+    OutboundLink createOutboundLink(String address, OutboundLinkMode mode) throws MessagingException
     {
         checkClosed();
         Sender sender;
@@ -112,11 +112,10 @@ class Session
         outLink.setDynamicAddress(target.getDynamic());
         _links.put(sender, outLink);
         sender.setContext(outLink);
-        _conn.write();
         return outLink;
     }
 
-    public InboundLink createInboundLink(String address, InboundLinkMode mode, CreditMode creditMode)
+    InboundLink createInboundLink(String address, InboundLinkMode mode, CreditMode creditMode)
             throws MessagingException
     {
         Receiver receiver;
@@ -156,11 +155,10 @@ class Session
         inLink.setDynamicAddress(source.getDynamic());
         _links.put(receiver, inLink);
         receiver.setContext(inLink);
-        _conn.write();
         return inLink;
     }
 
-    public void disposition(AmqpMessage msg, MessageDisposition disposition, int... flags) throws MessageFormatException,
+    void disposition(AmqpMessage msg, MessageDisposition disposition, int... flags) throws MessageFormatException,
             MessagingException
     {
         switch (disposition)
@@ -177,12 +175,12 @@ class Session
         }
     }
 
-    public void settle(AmqpMessage msg, int... flags) throws MessageFormatException, MessagingException
+    void settle(AmqpMessage msg, int... flags) throws MessageFormatException, MessagingException
     {
         settle(convertMessage(msg), flags.length == 0 ? false : (flags[0] & CUMULATIVE) != 0, true);
     }
 
-    public void close()
+    void close()
     {
         if (!_closed.get())
         {

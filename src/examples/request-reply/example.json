@@ -3,22 +3,18 @@
 "amqp.inbound-port"  : 5673,
 "amqp.default-outbound-address" : "amqp://localhost:5672/vertx",
 "vertx.default-handler-address" : "vertx.mod-amqp",
-"vertx.handlers" : ["ca-weather", "us-weather"],
+"vertx.handlers" : ["amqp-server"],
 
 "vertx.routing-outbound" : {
-			"routing-property-name" : "routing-key", 
 			"routes" :{
-						"ca.*" : "amqp://localhost:5672/weather-query",
-						"us.*" : "amqp://localhost:5675/weather-query"
+				     "amqp-server" : "amqp://localhost:5672/amqp-server"
 	     			  }
 	         
 	     },
 
 "vertx.routing-inbound" : {
-			"routing-property-type" : SUBJECT, 
 			"routes" :{
-						 "us.*" : "us-weather-reply",
-						 "ca.*" : "ca-weather-reply"
+				     "amqp://localhost:5673/server-verticle" : "server-verticle"
 	     			  }
 	         
 	     } 

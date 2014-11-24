@@ -17,6 +17,7 @@ package com.tworlabs.vertx.mod.amqp;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.qpid.proton.Proton;
 import org.apache.qpid.proton.engine.Collector;
@@ -25,30 +26,35 @@ import org.apache.qpid.proton.engine.EndpointState;
 import org.apache.qpid.proton.engine.Event;
 import org.apache.qpid.proton.engine.Link;
 import org.apache.qpid.proton.engine.Receiver;
+import org.apache.qpid.proton.engine.Sasl;
 import org.apache.qpid.proton.engine.Sender;
 import org.apache.qpid.proton.engine.Transport;
 import org.apache.qpid.proton.message.Message;
 import org.vertx.java.core.Handler;
 import org.vertx.java.core.buffer.Buffer;
+import org.vertx.java.core.logging.Logger;
 import org.vertx.java.core.net.NetSocket;
 
 public class Connection
 {
+    enum State
+    {
+        NEW, CONNECTED, FAILED
+    };
+
+    private final Logger _logger;
+
     private final org.apache.qpid.proton.engine.Connection protonConnection;
 
     private final Transport _transport;
 
     private final org.apache.qpid.proton.engine.Session _protonSession;
 
-    private final NetSocket _socket;
-
     private final Collector _collector;
 
-    private final MessageFactory _messageFactory = new MessageFactory();
-
-    private boolean _closed = false;
-
     private final ArrayList<Handler<Void>> disconnectHandlers = new ArrayList<Handler<Void>>();
+
+    private final Object _lock = new Object();
 
     private final EventHandler _eventHandler;
 
@@ -56,16 +62,20 @@ public class Connection
 
     private final boolean _isInbound;
 
+    private final String _toString;
+
     private Session _session;
 
-    public Connection(ConnectionSettings settings, NetSocket s, EventHandler handler, boolean inbound)
+    private NetSocket _socket;
+
+    private State _state = State.NEW;
+
+    public Connection(Logger logger, ConnectionSettings settings, EventHandler handler, boolean inbound)
     {
+        _logger = logger;
+        _toString = "amqp://" + settings.getHost() + ":" + settings.getPort();
         _isInbound = inbound;
         _settings = settings;
-        _socket = s;
-        _socket.dataHandler(new DataHandler());
-        _socket.drainHandler(new DrainHandler());
-        _socket.endHandler(new EosHandler());
         _eventHandler = handler;
 
         protonConnection = org.apache.qpid.proton.engine.Connection.Factory.create();
@@ -74,6 +84,18 @@ public class Connection
 
         protonConnection.setContext(this);
         protonConnection.collect(_collector);
+        Sasl sasl = _transport.sasl();
+        if (inbound)
+        {
+            sasl.server();
+            sasl.setMechanisms(new String[] { "ANONYMOUS" });
+            sasl.done(Sasl.SaslOutcome.PN_SASL_OK);
+        }
+        else
+        {
+            sasl.client();
+            sasl.setMechanisms(new String[] { "ANONYMOUS" });
+        }
         _transport.bind(protonConnection);
         _protonSession = protonConnection.session();
         _session = new Session(this, _protonSession);
@@ -89,6 +111,27 @@ public class Connection
         disconnectHandlers.add(handler);
     }
 
+    void setNetSocket(NetSocket s)
+    {
+        synchronized (_lock)
+        {
+            _socket = s;
+            _socket.dataHandler(new DataHandler());
+            _socket.drainHandler(new DrainHandler());
+            _socket.endHandler(new EosHandler());
+            _state = State.CONNECTED;
+        }
+        write();
+    }
+
+    void setState(State state)
+    {
+        synchronized (_lock)
+        {
+            _state = state;
+        }
+    }
+
     public void open()
     {
         protonConnection.open();
@@ -98,15 +141,26 @@ public class Connection
 
     public boolean isOpen()
     {
-        return !_closed && protonConnection.getLocalState() == EndpointState.ACTIVE
-                && protonConnection.getRemoteState() == EndpointState.ACTIVE;
+        synchronized (_lock)
+        {
+            return _state == State.CONNECTED && protonConnection.getLocalState() == EndpointState.ACTIVE
+                    && protonConnection.getRemoteState() == EndpointState.ACTIVE;
+        }
+    }
+
+    State getState()
+    {
+        synchronized (_lock)
+        {
+            return _state;
+        }
     }
 
     public boolean isInbound()
     {
         return _isInbound;
     }
-    
+
     public void close()
     {
         protonConnection.close();
@@ -114,7 +168,10 @@ public class Connection
 
     public OutboundLink createOutBoundLink(String address) throws MessagingException
     {
-        return _session.createOutboundLink(address, OutboundLinkMode.AT_LEAST_ONCE);
+        OutboundLink link = _session.createOutboundLink(address, OutboundLinkMode.AT_LEAST_ONCE);
+        link.init();
+        write();
+        return link;
     }
 
     private void processEvents()
@@ -132,7 +189,18 @@ public class Connection
                 _eventHandler.onConnectionClosed(this);
                 break;
             case SESSION_REMOTE_OPEN:
-                Session ssn = (Session) event.getSession().getContext();
+                Session ssn;
+                org.apache.qpid.proton.engine.Session amqpSsn = event.getSession();
+                if (amqpSsn.getContext() != null)
+                {
+                    ssn = (Session) amqpSsn.getContext();
+                }
+                else
+                {
+                    ssn = new Session(this, amqpSsn);
+                    amqpSsn.setContext(ssn);
+                    event.getSession().open();
+                }
                 _eventHandler.onSessionOpen(ssn);
                 break;
             case SESSION_FINAL:
@@ -143,12 +211,33 @@ public class Connection
                 Link link = event.getLink();
                 if (link instanceof Receiver)
                 {
-                    InboundLink inboundLink = (InboundLink) link.getContext();
+                    InboundLink inboundLink;
+                    if (link.getContext() != null)
+                    {
+                        inboundLink = (InboundLink) link.getContext();
+                    }
+                    else
+                    {
+                        inboundLink = new InboundLink(_session, link.getRemoteTarget().getAddress(), link,
+                                CreditMode.AUTO);
+                        link.setContext(inboundLink);
+                        inboundLink.init();
+                    }
                     _eventHandler.onInboundLinkOpen(inboundLink);
                 }
                 else
                 {
-                    OutboundLink outboundLink = (OutboundLink) link.getContext();
+                    OutboundLink outboundLink;
+                    if (link.getContext() != null)
+                    {
+                        outboundLink = (OutboundLink) link.getContext();
+                    }
+                    else
+                    {
+                        outboundLink = new OutboundLink(_session, link.getRemoteSource().getAddress(), link);
+                        link.setContext(outboundLink);
+                        outboundLink.init();
+                    }
                     _eventHandler.onOutboundLinkOpen(outboundLink);
                 }
                 break;
@@ -208,7 +297,14 @@ public class Connection
             Session ssn = inLink.getSession();
             AmqpMessage msg = new InboundMessage(ssn.getID(), d.getTag(), ssn.getNextIncommingSequence(),
                     d.isSettled(), pMsg);
-            _eventHandler.onMessage(inLink, msg);
+            try
+            {
+                _eventHandler.onMessage(inLink, msg);
+            }
+            catch (Exception e)
+            {
+                _logger.warn("Unexpected error while routing inbound message into event bus", e);
+            }
         }
         else
         {
@@ -224,6 +320,19 @@ public class Connection
 
     void write()
     {
+        synchronized (_lock)
+        {
+            if (_state != State.CONNECTED)
+            {
+                if (_logger.isDebugEnabled())
+                {
+                    _logger.debug(String.format("Connection s%:s%, state = %s. Returning without writing",
+                            _settings.getHost(), _settings.getPort(), _state));
+                }
+                return;
+            }
+        }
+
         if (_socket.writeQueueFull())
         {
             System.out.println("Socket buffers are full for " + this);
@@ -257,6 +366,7 @@ public class Connection
                 _transport.processInput();
                 processEvents();
             }
+            write();
         }
     }
 
@@ -272,11 +382,18 @@ public class Connection
     {
         public void handle(Void v)
         {
-            _closed = true;
+            setState(State.FAILED);
+            _logger.info("Received EOF. Setting state to FAILED");
             for (Handler<Void> h : disconnectHandlers)
             {
                 h.handle(v);
             }
         }
+    }
+
+    @Override
+    public String toString()
+    {
+        return _toString;
     }
 }

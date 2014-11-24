@@ -1,6 +1,6 @@
 /*
  *
- * Licensed to the Apache Software Foundation (ASF) under one
+:w * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
  * regarding copyright ownership.  The ASF licenses this file
@@ -41,7 +41,6 @@ class InboundLink extends BaseLink
         _creditMode = creditMode;
     }
 
-    
     void init()
     {
         _link.open();
@@ -58,7 +57,7 @@ class InboundLink extends BaseLink
         Receiver receiver = (Receiver) _link;
         if (drain)
         {
-            //receiver.setDrain(true);
+            // receiver.setDrain(true);
         }
         receiver.flow(credits);
         _ssn.getConnection().write();
@@ -84,21 +83,18 @@ class InboundLink extends BaseLink
         }
     }
 
-    
-    public CreditMode getCreditMode()
+    CreditMode getCreditMode()
     {
         return _creditMode;
     }
 
-    
-    public int getUnsettled() throws MessagingException
+    int getUnsettled() throws MessagingException
     {
         checkClosed();
         return _unsettled.get();
     }
 
-    
-    public void setCredits(int credits) throws MessagingException
+    void setCredits(int credits) throws MessagingException
     {
         checkClosed();
         if (credits < 0)

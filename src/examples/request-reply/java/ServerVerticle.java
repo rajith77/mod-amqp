@@ -18,24 +18,23 @@ import org.vertx.java.core.eventbus.Message;
 import org.vertx.java.core.json.JsonObject;
 import org.vertx.java.platform.Verticle;
 
-public class TestBridgeVerticle extends Verticle implements Handler<Message<JsonObject>>
+public class ServerVerticle extends Verticle implements Handler<Message<JsonObject>>
 {
-
     @Override
     public void start()
     {
-        super.start();
-        container.logger().info("-------- Test Bridge Verticle --------");
-        vertx.eventBus().registerHandler("bridge", this);
-        JsonObject m = new JsonObject();
-        m.putString("body", "Hello from Vertx");
-        vertx.eventBus().send("vertx.mod-amqp", m);
+        vertx.eventBus().registerHandler("server-verticle", this);
     }
 
     @Override
-    public void handle(Message<JsonObject> m)
+    public void handle(Message<JsonObject> msg)
     {
-        StringBuilder b = new StringBuilder();
-        b.append("message : ").append(m.body());
+        System.out.println("Server verticle received request : " + msg.body().encodePrettily());
+
+        JsonObject m = new JsonObject();
+        m.putString("body", msg.body().getString("body").toUpperCase());
+        msg.reply(m);
+
+        System.out.println("Server verticle sent reply : " + m.encodePrettily());
     }
 }

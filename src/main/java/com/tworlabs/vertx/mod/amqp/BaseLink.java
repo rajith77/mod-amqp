@@ -26,6 +26,8 @@ import org.apache.qpid.proton.engine.Link;
 
 abstract class BaseLink
 {
+    private final String _toString;
+
     String _address;
 
     Link _link;
@@ -41,6 +43,7 @@ abstract class BaseLink
         _address = address;
         _link = link;
         _ssn = ssn;
+        _toString = ssn.getConnection().toString() + "/" + address;
     }
 
     public String getAddress()
@@ -78,9 +81,15 @@ abstract class BaseLink
     {
         return _ssn;
     }
-    
+
     Connection getConnection()
     {
         return _ssn.getConnection();
+    }
+
+    @Override
+    public String toString()
+    {
+        return _toString;
     }
 }

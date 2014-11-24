@@ -18,27 +18,20 @@ import org.vertx.java.core.eventbus.Message;
 import org.vertx.java.core.json.JsonObject;
 import org.vertx.java.platform.Verticle;
 
-public class TestRouterVerticle extends Verticle implements Handler<Message<JsonObject>>
+public class ClientVerticle extends Verticle implements Handler<Message<JsonObject>>
 {
-
     @Override
     public void start()
     {
-        super.start();
-        container.logger().info("-------- Test Router Verticle --------");
-        vertx.eventBus().registerHandler("us-weather-reply", this);
-        vertx.eventBus().registerHandler("ca-weather-reply", this);
-        
-        JsonObject m = new JsonObject();
-        m.putString("body", "Hello from Vertx");
-        vertx.eventBus().send("us-weather", m);
-        vertx.eventBus().send("ca-weather", m);
+        JsonObject msg = new JsonObject();
+        msg.putString("body", "hello world");
+        System.out.println("Client verticle sent request : " + msg.encodePrettily());
+        vertx.eventBus().send("amqp-server", msg, this);
     }
 
     @Override
-    public void handle(Message<JsonObject> m)
+    public void handle(Message<JsonObject> msg)
     {
-        StringBuilder b = new StringBuilder();
-        b.append("message : ").append(m.body());
+        System.out.println("Client verticle received response : " + msg.body().encodePrettily());
     }
 }
