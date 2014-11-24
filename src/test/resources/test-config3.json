@@ -17,6 +17,7 @@
 	     },
 
 "vertx.routing-inbound" : {
+            "routing-property-type" : "CUSTOM",
 			"routing-property-name" : "station-code", 
 			"routes" :{
 						 "us.*" : "us-weather",

@@ -113,7 +113,7 @@ public class RouterConfig
         {
             JsonObject _inboundRouting = config.getObject("vertx.routing-inbound");
 
-            if (_inboundRouting.containsField("routing-property-name"))
+            if (_inboundRouting.containsField("routing-property-type"))
             {
                 _inboundRoutingPropertyType = INBOUND_ROUTING_PROPERTY_TYPE.get(_inboundRouting
                         .getString("routing-property-type"));
