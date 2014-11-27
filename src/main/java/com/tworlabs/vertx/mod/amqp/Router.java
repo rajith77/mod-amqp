@@ -201,7 +201,29 @@ public class Router implements EventHandler, Handler<Message<JsonObject>>
             {
                 msg.setReplyTo(_replyToAddressPrefix + "/" + m.replyAddress());
             }
-            List<OutboundLink> links = routeOutbound(m.address());
+            
+            String routingKey = m.address(); // default
+            if (_config.isUseCustomPropertyForOutbound() && _config.getOutboundRoutingPropertyName() != null)
+            {   
+                if (m.body().containsField("properties") && m.body().getObject("properties").containsField(_config.getOutboundRoutingPropertyName()))
+                {
+                    routingKey = m.body().getObject("properties").getString(_config.getOutboundRoutingPropertyName());                    
+                }
+                else if (m.body().containsField("application-properties") && m.body().getObject("application-properties").containsField(_config.getOutboundRoutingPropertyName()))
+                {
+                    routingKey = m.body().getObject("application-properties").getString(_config.getOutboundRoutingPropertyName());                    
+                }
+                
+                if (_logger.isInfoEnabled())
+                {
+                    _logger.info("\n============= Custom Routing Property ============");
+                    _logger.info("Custom routing property name : " + _config.getOutboundRoutingPropertyName());
+                    _logger.info("Routing property value : " + routingKey);
+                    _logger.info("============= /Custom Routing Property ============\n");
+                }
+            }
+            
+            List<OutboundLink> links = routeOutbound(routingKey);
             if (links.size() == 0)
             {
                 if (_defaultOutboundLink.getConnection().getState() == State.FAILED)
@@ -272,6 +294,14 @@ public class Router implements EventHandler, Handler<Message<JsonObject>>
             String url = new StringBuilder(con.getSettings().getHost()).append(":").append(con.getSettings().getPort())
                     .append("/").append(address).toString();
             _outboundLinks.put(url, link);
+
+            if (_logger.isInfoEnabled())
+            {
+                _logger.info("\n============= Outbound Route ============");
+                _logger.info(String.format("Adding a mapping for {%s : %s}", address, url));
+                _logger.info("============= /Outbound Route) ============\n");
+            }
+
             if (_config.getOutboundRoutes().containsKey(address))
             {
                 _config.getOutboundRoutes().get(address).add(url);
