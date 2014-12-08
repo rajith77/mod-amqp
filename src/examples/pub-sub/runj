@@ -1,0 +1,13 @@
+#!/bin/sh
+
+: ${PROTON_LIB:?"Need to set PROTON_LIB"}
+
+javac -cp $PROTON_LIB $1
+
+export CP=$PWD:$PROTON_LIB
+
+CLASS=`echo $1| cut -d'.' -f 1`
+
+echo $CLASS
+
+java -cp $CP $CLASS

@@ -13,7 +13,7 @@ For more info please [click here](http://vertx.io/manual.html)
 
 + You have read the general introduction to the AMQP module [here](https://github.com/rajith77/mod-amqp/blob/master/README.md)
 
-#### 1. Vertx Server - Amqp Client
+#### 1. Vertx Server - AMQP Client
 1. Start the AMQP Verticle in clustered mode, with the correct configuration.
    ```
    vertx runmod com.tworlabs~mod-amqp~1.0-SNAPSHOT -cluster -conf request-reply.json
@@ -25,7 +25,7 @@ For more info please [click here](http://vertx.io/manual.html)
    vertx run ServerVerticle.java -cluster
    ```
 
-   Ruby Version (from src/examples/request-reply/rb dir)
+   OR the Ruby Version (from src/examples/request-reply/rb dir)
    ```
    vertx run ServerVerticle.rb -cluster
    ```
@@ -43,7 +43,7 @@ For more info please [click here](http://vertx.io/manual.html)
    ```
 
 #### How it works.
-+ First lets look at the configuration below, which defines a mapping between an AMQP address and an Event Bus address.
++ First lets look at the [configuration](https://github.com/rajith77/mod-amqp/blob/master/src/examples/request-reply/request-reply.json) snippet below, which defines a mapping between an AMQP address and an Event Bus address.
   ```json
   "vertx.routing-inbound" : {
 			"routes" :{
@@ -57,7 +57,7 @@ For more info please [click here](http://vertx.io/manual.html)
 + It then sends the response by simply calling _reply_ on the request message. See [line 36 : ServerVerticle.java](https://github.com/rajith77/mod-amqp/blob/master/src/examples/request-reply/java/ServerVerticle.java#36) OR [line 22 : ServerVerticle.rb](https://github.com/rajith77/mod-amqp/blob/master/src/examples/request-reply/rb/ServerVerticle.rb#L22)
 + The AMQP Verticle will direct the response to the correct AMQP address.
 
-#### 1. Amqp Server - Vertx Client
+#### 1. AMQP Server - Vertx Client
 1. Start the AMQP Verticle in clustered mode, with the correct configuration.
    ```
    vertx runmod com.tworlabs~mod-amqp~1.0-SNAPSHOT -cluster -conf request-reply.json
@@ -90,7 +90,7 @@ For more info please [click here](http://vertx.io/manual.html)
    }
    ```
 #### How it works.
-+ First lets look at the configuration below, which defines a mapping between an AMQP address and an Event Bus address.
++ First lets look at the [configuration](https://github.com/rajith77/mod-amqp/blob/master/src/examples/request-reply/request-reply.json) snippet below, which defines a mapping between an AMQP address and an Event Bus address.
   It also defines a _handler address_ for the AMQP Verticle to register with the Vertx event-bus.
   ```json
   "vertx.handlers" : ["hello-service-amqp"],
