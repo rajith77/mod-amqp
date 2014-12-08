@@ -6,7 +6,7 @@ The Hello Serivce, converts the request to upper case and appends "HELLO : " to 
 
 ### How to run the examples.
 The tutorial assumes, 
-+ Uou have a basic knowledge of Vertx concepts and how to run/deploy verticles.
++ You have a basic knowledge of Vertx concepts and how to run/deploy verticles.
 For more info please [click here](http://vertx.io/manual.html)
 
 + You have a basic understanding of [AMQP](www.amqp.org), and have downloaded the proton.jar from [here](http://qpid.apache.org/releases/qpid-proton-0.8/index.html) and have set the "PROTON_LIB" variable to point to it.
@@ -53,8 +53,8 @@ For more info please [click here](http://vertx.io/manual.html)
 	     } 
   ``` 
 + This tells the AMQP Verticle to forward, any messages it receives at the AMQP address _"amqp://localhost:5673/hello-service"_ , to the Vertx event-bus address _hello-service_.
-...This is the _address_ that the Server verticle is listening to. See line 26 [ServerVerticle.java](https://github.com/rajith77/mod-amqp/blob/master/src/examples/request-reply/java/ServerVerticle.java#L26)
-+ It then sends the response by simply calling _reply_ on the request message. See line 36 [ServerVerticle.java](https://github.com/rajith77/mod-amqp/blob/master/src/examples/request-reply/java/ServerVerticle.java#36)
+...This is the _address_ that the Server verticle is listening to. See [line 26 : ServerVerticle.java](https://github.com/rajith77/mod-amqp/blob/master/src/examples/request-reply/java/ServerVerticle.java#L26) OR [line 18 : ServerVerticle.rb](https://github.com/rajith77/mod-amqp/blob/master/src/examples/request-reply/rb/ServerVerticle.rb#L18)
++ It then sends the response by simply calling _reply_ on the request message. See [line 36 : ServerVerticle.java](https://github.com/rajith77/mod-amqp/blob/master/src/examples/request-reply/java/ServerVerticle.java#36) OR [line 22 : ServerVerticle.rb](https://github.com/rajith77/mod-amqp/blob/master/src/examples/request-reply/rb/ServerVerticle.rb#L22)
 + The AMQP Verticle will direct the response to the correct AMQP address.
 
 #### 1. Amqp Server - Vertx Client
