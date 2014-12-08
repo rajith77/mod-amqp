@@ -23,10 +23,10 @@ public class ClientVerticle extends Verticle implements Handler<Message<JsonObje
     @Override
     public void start()
     {
-        JsonObject msg = new JsonObject();
-        msg.putString("body", "hello world");
-        System.out.println("Client verticle sent request : " + msg.encodePrettily());
-        vertx.eventBus().send("amqp-server", msg, this);
+        JsonObject requestMsg = new JsonObject();
+        requestMsg.putString("body", "rajith");
+        System.out.println("Client verticle sent request : " + requestMsg.encodePrettily());
+        vertx.eventBus().send("hello-service-amqp", requestMsg, this);
     }
 
     @Override

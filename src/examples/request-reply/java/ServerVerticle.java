@@ -23,18 +23,18 @@ public class ServerVerticle extends Verticle implements Handler<Message<JsonObje
     @Override
     public void start()
     {
-        vertx.eventBus().registerHandler("server-verticle", this);
+        vertx.eventBus().registerHandler("hello-service", this);
     }
 
     @Override
-    public void handle(Message<JsonObject> msg)
+    public void handle(Message<JsonObject> requestMsg)
     {
-        System.out.println("Server verticle received request : " + msg.body().encodePrettily());
+        System.out.println("Server verticle received request : " + requestMsg.body().encodePrettily());
 
-        JsonObject m = new JsonObject();
-        m.putString("body", msg.body().getString("body").toUpperCase());
-        msg.reply(m);
+        JsonObject replyMsg = new JsonObject();
+        replyMsg.putString("body", "HELLO " + requestMsg.body().getString("body").toUpperCase());
+        requestMsg.reply(replyMsg);
 
-        System.out.println("Server verticle sent reply : " + m.encodePrettily());
+        System.out.println("Server verticle sent reply : " + replyMsg.encodePrettily());
     }
 }

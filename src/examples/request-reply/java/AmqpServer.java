@@ -25,22 +25,22 @@ public class AmqpServer
     {
         Messenger mng = Proton.messenger();
         mng.start();
-        mng.subscribe("amqp://~localhost:5672/amqp-server");
+        mng.subscribe("amqp://~localhost:5672/hello-service-amqp");
 
         while (true)
         {
             mng.recv(1);
             while (mng.incoming() > 0)
             {
-                Message m = mng.get();
+                Message requestMsg = mng.get();
                 mng.accept(mng.incomingTracker(), 0);
-                String body = (String) ((AmqpValue) m.getBody()).getValue();
+                String body = (String) ((AmqpValue) requestMsg.getBody()).getValue();
                 System.out.println("AMQP server received request : " + body);
 
-                Message msg = Proton.message();
-                msg.setBody(new AmqpValue(body.toUpperCase()));
-                msg.setAddress(m.getReplyTo());
-                mng.put(msg);
+                Message replyMsg = Proton.message();
+                replyMsg.setBody(new AmqpValue("HELLO " + body.toUpperCase()));
+                replyMsg.setAddress(requestMsg.getReplyTo());
+                mng.put(replyMsg);
                 mng.send();
                 System.out.println("AMQP server sent response : " + body.toUpperCase());
             }

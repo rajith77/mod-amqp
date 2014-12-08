@@ -1,0 +1,11 @@
+#!/bin/sh
+
+export CP="/home/rajith/workspace/mod-amqp/src/examples/mods/com.tworlabs~mod-amqp~1.0-SNAPSHOT/lib/proton-j-0.8.jar"
+
+javac -cp $CP $1
+
+export CP1=$PWD:$CP
+
+CLASS=`echo $1| cut -d'.' -f 1`
+
+java -cp $CP1 $CLASS

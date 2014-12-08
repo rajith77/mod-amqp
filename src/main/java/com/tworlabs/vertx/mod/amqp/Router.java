@@ -201,19 +201,23 @@ public class Router implements EventHandler, Handler<Message<JsonObject>>
             {
                 msg.setReplyTo(_replyToAddressPrefix + "/" + m.replyAddress());
             }
-            
+
             String routingKey = m.address(); // default
             if (_config.isUseCustomPropertyForOutbound() && _config.getOutboundRoutingPropertyName() != null)
-            {   
-                if (m.body().containsField("properties") && m.body().getObject("properties").containsField(_config.getOutboundRoutingPropertyName()))
+            {
+                if (m.body().containsField("properties")
+                        && m.body().getObject("properties").containsField(_config.getOutboundRoutingPropertyName()))
                 {
-                    routingKey = m.body().getObject("properties").getString(_config.getOutboundRoutingPropertyName());                    
+                    routingKey = m.body().getObject("properties").getString(_config.getOutboundRoutingPropertyName());
                 }
-                else if (m.body().containsField("application-properties") && m.body().getObject("application-properties").containsField(_config.getOutboundRoutingPropertyName()))
+                else if (m.body().containsField("application-properties")
+                        && m.body().getObject("application-properties")
+                                .containsField(_config.getOutboundRoutingPropertyName()))
                 {
-                    routingKey = m.body().getObject("application-properties").getString(_config.getOutboundRoutingPropertyName());                    
+                    routingKey = m.body().getObject("application-properties")
+                            .getString(_config.getOutboundRoutingPropertyName());
                 }
-                
+
                 if (_logger.isInfoEnabled())
                 {
                     _logger.info("\n============= Custom Routing Property ============");
@@ -222,7 +226,7 @@ public class Router implements EventHandler, Handler<Message<JsonObject>>
                     _logger.info("============= /Custom Routing Property ============\n");
                 }
             }
-            
+
             List<OutboundLink> links = routeOutbound(routingKey);
             if (links.size() == 0)
             {
@@ -489,11 +493,15 @@ public class Router implements EventHandler, Handler<Message<JsonObject>>
         {
             try
             {
-                _logger.info("\n============= Outbound Routing (Reply To) ============");
-                _logger.info("Routing vertx reply to AMQP space");
+                if (_logger.isInfoEnabled())
+                {
+                    _logger.info("\n============= Outbound Routing (Reply To) ============");
+                    _logger.info("Routing vertx reply to AMQP space");
+                    _logger.info("Reply msg : " + msg.body());
+                    _logger.info("============= /Outbound Routing (Reply To) ============\n");
+                }
                 OutboundLink link = findOutboundLink(_protocolMsg.getReplyTo());
                 link.send(_msgFactory.convert(msg.body()));
-                _logger.info("============= /Outbound Routing (Reply To) ============\n");
             }
             catch (MessagingException e)
             {
@@ -526,11 +534,15 @@ public class Router implements EventHandler, Handler<Message<JsonObject>>
             else
             {
                 _cause = result.cause();
-                _logger.info("-------- Connection failure ----------");
-                _logger.info(String.format("Failed to establish a connection to AMQP peer at %s:%s", _connection
-                        .getSettings().getHost(), _connection.getSettings().getPort()));
-                _logger.info("Exception received", _cause);
-                _logger.info("-------- /Connection failure ----------");
+                /*
+                 * _logger.info("-------- Connection failure ----------");
+                 * _logger.info(String.format(
+                 * "Failed to establish a connection to AMQP peer at %s:%s",
+                 * _connection .getSettings().getHost(),
+                 * _connection.getSettings().getPort()));
+                 * _logger.info("Exception received", _cause);
+                 * _logger.info("-------- /Connection failure ----------");
+                 */
                 _outboundConnections.remove(_connection);
             }
         }

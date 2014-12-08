@@ -25,15 +25,15 @@ public class AmqpClient
     {
         Messenger mng = Proton.messenger();
         mng.start();
-        mng.subscribe("amqp://~localhost:5672/reply");
+        mng.subscribe("amqp://~localhost:5672/my-reply-dest");
 
-        Message msg = Proton.message();
-        msg.setBody(new AmqpValue("hello world"));
-        msg.setAddress("amqp://localhost:5673/server-verticle");
-        msg.setReplyTo("amqp://localhost:5672/reply");
-        mng.put(msg);
+        Message requestMsg = Proton.message();
+        requestMsg.setBody(new AmqpValue("rajith"));
+        requestMsg.setAddress("amqp://localhost:5673/hello-service");
+        requestMsg.setReplyTo("amqp://localhost:5672/my-reply-dest");
+        mng.put(requestMsg);
         mng.send();
-        System.out.println("AMQP client sent request : hello world");
+        System.out.println("AMQP client sent request : rajith");
 
         mng.recv(1);
         while (mng.incoming() > 0)
