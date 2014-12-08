@@ -6,7 +6,7 @@ As the first phase, the module aims to support the following interaction pattern
 + Request/Reply
 + Pub/Sub
 
-(https://github.com/rajith77/mod-amqp/blob/master/doc/images/vertx-amqp.jpeg)
+!(https://github.com/rajith77/mod-amqp/blob/master/doc/images/vertx-amqp.jpeg)
 
 A Verticle should see no difference between another Verticle and an AMQP node when communicating, while an AMQP node should _see some similarities_ between a Verticle and another AMQP Node. Given Vertx has very basic messaging capabilities, it's difficult for a Verticle to represent all AMQP features. Futher improvements are planned to make the _briding_ as smooth as possible, including dynamic/programatic management of AMQP link.
 
