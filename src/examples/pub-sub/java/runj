@@ -1,11 +1,13 @@
 #!/bin/sh
 
-export CP="/home/rajith/workspace/mod-amqp/src/examples/mods/com.tworlabs~mod-amqp~1.0-SNAPSHOT/lib/proton-j-0.8.jar"
+: ${PROTON_LIB:?"Need to set PROTON_LIB"}
 
-javac -cp $CP $1
+javac -cp $PROTON_LIB $1
 
-export CP1=$PWD:$CP
+export CP=$PWD:$PROTON_LIB
 
 CLASS=`echo $1| cut -d'.' -f 1`
 
-java -cp $CP1 $CLASS
+echo $CLASS
+
+java -cp $CP $CLASS
