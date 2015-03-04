@@ -1,3 +1,9 @@
+For Vertx 3
+===========
+
+Please see https://github.com/vert-x3/vertx-amqp-service
+
+
  AMQP 1.0 busmod for Vert.x - Connecting AMQP & Vertx ecosystems.
 =================================================================
 
